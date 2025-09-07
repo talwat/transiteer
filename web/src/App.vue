@@ -18,10 +18,8 @@ onBeforeUnmount(() => {
 
 let data = TransitMap.new()
 data.push_line(Line.new(Color.new(255, 0, 0), 'Red Line'))
-data.push_point(0, Point.new(0, 0))
-data.push_point(0, Point.new(2, 2))
 
-const MAP_SIZE = 50
+const MAP_SIZE = 24
 
 let svg = ref(data.svg())
 
@@ -33,6 +31,15 @@ let offset = [0, 0]
 let initial = [0, 0]
 
 const scale = ref()
+
+function screenToWorld(x: number, y: number): [number, number] {
+  const worldX = viewBox.value[0] * scale.value + x
+  const worldY = viewBox.value[1] * scale.value + y
+
+  const roundX = Math.round(worldX / scale.value)
+  const roundY = Math.round(worldY / scale.value)
+  return [roundX, roundY]
+}
 
 function resize() {
   if (canvas.value != null) {
@@ -49,20 +56,16 @@ function move(event: MouseEvent) {
     viewBox.value[1] = initial[1] + (offset[1] - event.clientY) / scale.value
   }
 
-  const size = scale.value * 2
-  const worldX = viewBox.value[0] * scale.value + event.clientX
-  const worldY = viewBox.value[1] * scale.value + event.clientY
+  const [worldX, worldY] = screenToWorld(event.clientX, event.clientY)
 
-  const snappedX = Math.floor(worldX / size) * size
-  const snappedY = Math.floor(worldY / size) * size
-
-  const screenX = snappedX - viewBox.value[0] * scale.value
-  const screenY = snappedY - viewBox.value[1] * scale.value
+  const screenX = worldX * scale.value - viewBox.value[0] * scale.value
+  const screenY = worldY * scale.value - viewBox.value[1] * scale.value
 
   ctx.reset()
-  ctx.fillRect(screenX, screenY, size, size)
 
-  // ctx.ellipse(0, 0, 2, 2, 0, 0, Math.PI * 2, false);
+  ctx.beginPath()
+  ctx.arc(screenX, screenY, 8, 0, Math.PI * 2) // radius=3px
+  ctx.fill()
 }
 
 function down(event: MouseEvent) {
@@ -80,14 +83,29 @@ function up(event: MouseEvent) {
   if (event.button != 2) return
   held = false
 }
+
+function click(event: MouseEvent) {
+  const [worldX, worldY] = screenToWorld(event.clientX, event.clientY)
+
+  data.push_point(0, Point.new(worldX, worldY))
+  svg.value = data.svg()
+  console.log(worldX, worldY)
+}
 </script>
 
 <template>
-  <div id="view" @mousemove="move" @mousedown="down" @mouseup="up" oncontextmenu="return false">
+  <div
+    id="view"
+    @click="click"
+    @mousemove="move"
+    @mousedown="down"
+    @mouseup="up"
+    oncontextmenu="return false"
+  >
     <div
       id="grid"
       :style="{
-        backgroundSize: `${scale * 2}px ${scale * 2}px`,
+        backgroundSize: `${scale}px ${scale}px`,
         backgroundPositionX: `${viewBox[0] * -scale}px`,
         backgroundPositionY: `${viewBox[1] * -scale}px`,
       }"
