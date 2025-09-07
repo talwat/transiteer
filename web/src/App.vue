@@ -1,24 +1,66 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from 'vue'
-import { map_data as mapData } from '/wasm'
+import { computed, reactive, ref, useTemplateRef } from 'vue'
+import { Color, Line, Point, TransitMap } from '/wasm'
+import { onMounted, onBeforeUnmount } from 'vue'
 
-let data = mapData()
-let viewBox = ref([0, 0, 256, 256])
+const canvas = useTemplateRef('canvas')
+var ctx: CanvasRenderingContext2D
+onMounted(() => {
+  window.addEventListener('resize', resize)
+  resize()
+
+  ctx = (canvas.value as HTMLCanvasElement).getContext('2d')!
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resize)
+})
+
+let data = TransitMap.new()
+data.push_line(Line.new(Color.new(255, 0, 0), 'Red Line'))
+data.push_point(0, Point.new(0, 0))
+data.push_point(0, Point.new(2, 2))
+
+const MAP_SIZE = 50
+
+let svg = ref(data.svg())
+
+let viewBox = ref([0, 0, MAP_SIZE, MAP_SIZE])
 let viewBoxString = computed(() => viewBox.value.join(' '))
 
 let held = false
 let offset = [0, 0]
 let initial = [0, 0]
 
-let design = useTemplateRef('design')
+const scale = ref()
+
+function resize() {
+  if (canvas.value != null) {
+    canvas.value.width = innerWidth
+    canvas.value.height = innerHeight
+  }
+
+  scale.value = Math.min(window.innerWidth / MAP_SIZE, window.innerHeight / MAP_SIZE)
+}
 
 function move(event: MouseEvent) {
-  if (!held || design.value == null) return
+  if (held) {
+    viewBox.value[0] = initial[0] + (offset[0] - event.clientX) / scale.value
+    viewBox.value[1] = initial[1] + (offset[1] - event.clientY) / scale.value
+  }
 
-  const scale = Math.max(256 / window.innerWidth, 256 / window.innerHeight)
+  const size = scale.value * 2
+  const unroundedX = event.clientX
+  const unroundedY = event.clientY
 
-  viewBox.value[0] = initial[0] + (offset[0] - event.clientX) * scale
-  viewBox.value[1] = initial[1] + (offset[1] - event.clientY) * scale
+  const x = Math.round(unroundedX / size) * size
+  const y = Math.round(unroundedY / size) * size
+
+  ctx.reset()
+  // TODO: This is still broken...
+  ctx.fillRect(x - viewBox.value[0] * scale.value, y - viewBox.value[1] * scale.value, size, size)
+
+  // ctx.ellipse(0, 0, 2, 2, 0, 0, Math.PI * 2, false);
 }
 
 function down(event: MouseEvent) {
@@ -39,19 +81,24 @@ function up(event: MouseEvent) {
 </script>
 
 <template>
-  <div id="view">
+  <div id="view" @mousemove="move" @mousedown="down" @mouseup="up" oncontextmenu="return false">
+    <div
+      id="grid"
+      :style="{
+        backgroundSize: `${scale * 2}px ${scale * 2}px`,
+        backgroundPositionX: `${viewBox[0] * -scale}px`,
+        backgroundPositionY: `${viewBox[1] * -scale}px`,
+      }"
+    ></div>
     <svg
       ref="design"
       id="design"
       xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="xMinYMin"
       :viewBox="viewBoxString"
-      v-html="data"
-      @mousemove="move"
-      @mousedown="down"
-      @mouseup="up"
-      oncontextmenu="return false"
+      v-bind:innerHTML="svg"
     ></svg>
-    <div id="grid"></div>
+    <canvas id="canvas" ref="canvas"></canvas>
   </div>
 </template>
 
@@ -65,15 +112,30 @@ function up(event: MouseEvent) {
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
+  z-index: 1;
 }
 
-#design {
+#canvas {
+  z-index: 2;
+}
+
+#view > * {
+  width: 100%;
+  height: 100%;
   top: 0;
   margin: 0;
   position: absolute;
   overflow: hidden;
-  width: 100%;
-  height: 100%;
+}
+
+#grid {
+  background-image:
+    linear-gradient(to right, grey 1px, transparent 1px),
+    linear-gradient(to bottom, grey 1px, transparent 1px);
+  z-index: 0;
+}
+
+#design {
   -webkit-user-select: none;
   -moz-user-select: none;
   user-select: none;
