@@ -50,15 +50,17 @@ function move(event: MouseEvent) {
   }
 
   const size = scale.value * 2
-  const unroundedX = event.clientX
-  const unroundedY = event.clientY
+  const worldX = viewBox.value[0] * scale.value + event.clientX
+  const worldY = viewBox.value[1] * scale.value + event.clientY
 
-  const x = Math.round(unroundedX / size) * size
-  const y = Math.round(unroundedY / size) * size
+  const snappedX = Math.floor(worldX / size) * size
+  const snappedY = Math.floor(worldY / size) * size
+
+  const screenX = snappedX - viewBox.value[0] * scale.value
+  const screenY = snappedY - viewBox.value[1] * scale.value
 
   ctx.reset()
-  // TODO: This is still broken...
-  ctx.fillRect(x - viewBox.value[0] * scale.value, y - viewBox.value[1] * scale.value, size, size)
+  ctx.fillRect(screenX, screenY, size, size)
 
   // ctx.ellipse(0, 0, 2, 2, 0, 0, Math.PI * 2, false);
 }
