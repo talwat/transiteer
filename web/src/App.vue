@@ -25,6 +25,7 @@ let svg = ref(data.svg())
 
 let viewBox = ref([0, 0, MAP_SIZE, MAP_SIZE])
 let viewBoxString = computed(() => viewBox.value.join(' '))
+let cursor = ref([0, 0])
 
 let held = false
 let offset = [0, 0]
@@ -39,6 +40,13 @@ function screenToWorld(x: number, y: number): [number, number] {
   const roundX = Math.round(worldX / scale.value)
   const roundY = Math.round(worldY / scale.value)
   return [roundX, roundY]
+}
+
+function worldToScreen(x: number, y: number): [number, number] {
+  const screenX = x * scale.value - viewBox.value[0] * scale.value
+  const screenY = y * scale.value - viewBox.value[1] * scale.value
+
+  return [screenX, screenY]
 }
 
 function resize() {
@@ -57,14 +65,55 @@ function move(event: MouseEvent) {
   }
 
   const [worldX, worldY] = screenToWorld(event.clientX, event.clientY)
-
-  const screenX = worldX * scale.value - viewBox.value[0] * scale.value
-  const screenY = worldY * scale.value - viewBox.value[1] * scale.value
+  cursor.value[0] = worldX
+  cursor.value[1] = worldY
 
   ctx.reset()
 
+  const lastPoint = data.latest_point(0)
+  if (lastPoint != null) {
+    const [sLastX, sLastY] = worldToScreen(lastPoint.x, lastPoint.y)
+    ctx.moveTo(sLastX, sLastY)
+
+    const dX = worldX - lastPoint.x
+    const dY = worldY - lastPoint.y
+
+    let destX
+    let destY
+
+    if (Math.abs(dX / 2) > Math.abs(dY)) {
+      destX = lastPoint.x + dX
+      destY = lastPoint.y
+    } else if (Math.abs(dY / 2) > Math.abs(dX)) {
+      destX = lastPoint.x
+      destY = lastPoint.y + dY
+    } else {
+      if (Math.abs(dX) > Math.abs(dY)) {
+        destX = lastPoint.x + dX
+        destY = lastPoint.y + Math.sign(dY) * Math.abs(dX)
+      } else if (Math.abs(dY) > Math.abs(dX)) {
+        destX = lastPoint.x + Math.sign(dX) * Math.abs(dY)
+        destY = lastPoint.y + dY
+      } else {
+        destX = lastPoint.x + dX
+        destY = lastPoint.y + dY
+      }
+    }
+
+    const [sDestX, sDestY] = worldToScreen(destX, destY)
+    ctx.lineTo(sDestX, sDestY)
+    ctx.strokeStyle = 'red'
+    ctx.lineWidth = scale.value / 2
+    ctx.stroke()
+
+    cursor.value = [destX, destY]
+  }
+
   ctx.beginPath()
-  ctx.arc(screenX, screenY, 8, 0, Math.PI * 2) // radius=3px
+  const [sCursorX, sCursorY] = worldToScreen(cursor.value[0], cursor.value[1])
+  ctx.arc(sCursorX, sCursorY, 8, 0, Math.PI * 2)
+  ctx.fillStyle = 'black'
+  ctx.strokeStyle = 'black'
   ctx.fill()
 }
 
@@ -85,11 +134,8 @@ function up(event: MouseEvent) {
 }
 
 function click(event: MouseEvent) {
-  const [worldX, worldY] = screenToWorld(event.clientX, event.clientY)
-
-  data.push_point(0, Point.new(worldX, worldY))
+  data.push_point(0, Point.new(cursor.value[0], cursor.value[1]))
   svg.value = data.svg()
-  console.log(worldX, worldY)
 }
 </script>
 

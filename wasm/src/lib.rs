@@ -73,6 +73,10 @@ impl TransitMap {
         self.lines[line].points.push(point);
     }
 
+    pub fn latest_point(&self, line: usize) -> Option<Point> {
+        Some(self.lines[line].points.last()?.to_owned())
+    }
+
     pub fn svg(&self) -> String {
         let paths = self.lines.iter().filter_map(|line| {
             let mut data = Data::new();
