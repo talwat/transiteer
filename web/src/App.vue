@@ -17,13 +17,11 @@ onBeforeUnmount(() => {
 })
 
 let data = TransitMap.new()
-data.push_line(Line.new(Color.new(255, 0, 0), 'Red Line'))
-
-const MAP_SIZE = 24
+data.push_line(Line.new(Color.new(255, 0, 0), 'Red Line', 'L1'))
 
 let svg = ref(data.svg())
 
-let viewBox = ref([0, 0, MAP_SIZE, MAP_SIZE])
+let viewBox = ref([0, 0, 24, 24])
 let viewBoxString = computed(() => viewBox.value.join(' '))
 let cursor = ref([0, 0])
 
@@ -55,7 +53,10 @@ function resize() {
     canvas.value.height = innerHeight
   }
 
-  scale.value = Math.min(window.innerWidth / MAP_SIZE, window.innerHeight / MAP_SIZE)
+  scale.value = Math.min(
+    window.innerWidth / viewBox.value[2],
+    window.innerHeight / viewBox.value[3],
+  )
 }
 
 function move(event: MouseEvent) {
@@ -102,6 +103,7 @@ function move(event: MouseEvent) {
 
     const [sDestX, sDestY] = worldToScreen(destX, destY)
     ctx.lineTo(sDestX, sDestY)
+    ctx.setLineDash([(scale.value * 2) / 3, scale.value / 2])
     ctx.strokeStyle = 'red'
     ctx.lineWidth = scale.value / 2
     ctx.stroke()
@@ -137,6 +139,19 @@ function click(event: MouseEvent) {
   data.push_point(0, Point.new(cursor.value[0], cursor.value[1]))
   svg.value = data.svg()
 }
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+function wheel(event: WheelEvent) {
+  viewBox.value[2] += event.deltaY / 10
+  viewBox.value[3] += event.deltaY / 10
+
+  viewBox.value[2] = clamp(viewBox.value[2], 1, 128)
+  viewBox.value[3] = clamp(viewBox.value[3], 1, 128)
+  resize()
+}
 </script>
 
 <template>
@@ -146,6 +161,7 @@ function click(event: MouseEvent) {
     @mousemove="move"
     @mousedown="down"
     @mouseup="up"
+    @wheel="wheel"
     oncontextmenu="return false"
   >
     <div
