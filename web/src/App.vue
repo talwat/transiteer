@@ -7,9 +7,8 @@ const canvas = useTemplateRef('canvas')
 var ctx: CanvasRenderingContext2D
 onMounted(() => {
   window.addEventListener('resize', resize)
-  resize()
-
   ctx = (canvas.value as HTMLCanvasElement).getContext('2d')!
+  resize()
 })
 
 onBeforeUnmount(() => {
@@ -30,6 +29,15 @@ let offset = [0, 0]
 let initial = [0, 0]
 
 const scale = ref()
+const grid_size = ref()
+
+function origin() {
+  const [x, y] = worldToScreen(0, 0)
+  ctx.arc(x, y, 8, 0, Math.PI * 2)
+  ctx.fillStyle = 'black'
+  ctx.strokeStyle = 'black'
+  ctx.fill()
+}
 
 function screenToWorld(x: number, y: number): [number, number] {
   const worldX = viewBox.value[0] * scale.value + x
@@ -57,6 +65,9 @@ function resize() {
     window.innerWidth / viewBox.value[2],
     window.innerHeight / viewBox.value[3],
   )
+
+  grid_size.value = Math.max(1, Math.pow(2, Math.floor(16 / scale.value)))
+  origin()
 }
 
 function move(event: MouseEvent) {
@@ -117,6 +128,8 @@ function move(event: MouseEvent) {
   ctx.fillStyle = 'black'
   ctx.strokeStyle = 'black'
   ctx.fill()
+
+  origin()
 }
 
 function down(event: MouseEvent) {
@@ -167,7 +180,7 @@ function wheel(event: WheelEvent) {
     <div
       id="grid"
       :style="{
-        backgroundSize: `${scale}px ${scale}px`,
+        backgroundSize: `${scale * Math.floor(grid_size)}px ${scale * Math.floor(grid_size)}px`,
         backgroundPositionX: `${viewBox[0] * -scale}px`,
         backgroundPositionY: `${viewBox[1] * -scale}px`,
       }"
